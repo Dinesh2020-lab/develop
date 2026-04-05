@@ -1,66 +1,23 @@
-const SECTION_COUNTS = {
-  frontend: 3,
-  backend:  3,
-  react:    3,
-  git:      3,
-  python:   3,
-}
-
-// ── Get progress ────────────────────────────────────────────────
-export async function getProgress(req, res) {
-  res.json({ progress: req.user.progress })
-}
-
-// ── Update section ──────────────────────────────────────────────
-export async function updateSection(req, res, next) {
-  try {
-    const { track, sectionIndex } = req.body
-
-    if (!SECTION_COUNTS[track]) {
-      return res.status(400).json({ error: 'Invalid track' })
-    }
-
-    const count = SECTION_COUNTS[track]
-    const idx   = Number(sectionIndex)
-
-    if (isNaN(idx) || idx < 0 || idx >= count) {
-      return res.status(400).json({ error: 'Invalid section index' })
-    }
-
-    const sectionsKey = `${track}Sections`
-    const sections    = [...req.user.progress[sectionsKey]]
-    sections[idx]     = true
-    const pct         = Math.round(sections.filter(Boolean).length / sections.length * 100)
-
-    req.user.progress[sectionsKey] = sections
-    req.user.progress[track]       = pct
-    req.user.markModified('progress')
-    await req.user.save()
-
-    res.json({
-      message:  'Progress updated',
-      progress: req.user.progress,
-    })
-  } catch (err) {
-    next(err)
-  }
-}
-
-// ── Reset progress ──────────────────────────────────────────────
-export async function resetProgress(req, res, next) {
-  try {
-    req.user.progress = {
-      frontend: 0, backend: 0, react: 0, git: 0, python: 0,
-      frontendSections: [false,false,false],
-      backendSections:  [false,false,false],
-      reactSections:    [false,false,false],
-      gitSections:      [false,false,false],
-      pythonSections:   [false,false,false],
-    }
-    req.user.markModified('progress')
-    await req.user.save()
-    res.json({ message: 'Progress reset', progress: req.user.progress })
-  } catch (err) {
-    next(err)
+{
+  "name": "devlearn",
+  "version": "1.0.0",
+  "description": "DevLearn backend",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "mongoose": "^8.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
   }
 }
