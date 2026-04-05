@@ -1,0 +1,104 @@
+import { useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
+
+export default function OtpPage() {
+  const { user, pendingEmail, devOtp, verifyOtp } = useAuth()
+  const navigate = useNavigate()
+
+  const [digits, setDigits] = useState(['', '', '', '', '', ''])
+  const [error,  setError]  = useState('')
+  const [loading, setLoading] = useState(false)
+  const [shaking, setShake]  = useState(false)
+  const refs = useRef([])
+
+  if (!pendingEmail) { navigate('/'); return null }
+
+  function handleChange(i, val) {
+    const v = val.replace(/\D/g, '').slice(-1)
+    const next = [...digits]; next[i] = v; setDigits(next); setError('')
+    if (v && i < 5) refs.current[i + 1]?.focus()
+  }
+
+  function handleKeyDown(i, e) {
+    if (e.key === 'Backspace' && !digits[i] && i > 0) refs.current[i - 1]?.focus()
+  }
+
+  function handlePaste(e) {
+    e.preventDefault()
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
+    const next = [...digits]
+    pasted.split('').forEach((ch, i) => { next[i] = ch })
+    setDigits(next)
+    refs.current[Math.min(pasted.length, 5)]?.focus()
+  }
+
+  async function handleVerify() {
+    const code = digits.join('')
+    if (code.length < 6) { setError('Please enter the complete 6-digit code.'); return }
+    setLoading(true)
+    try {
+      const data = await verifyOtp(code)
+      if (!data.user.profileSetup) navigate('/profile')
+      else navigate('/dashboard')
+    } catch (err) {
+      setError(err.message || 'Incorrect OTP. Please try again.')
+      setShake(true)
+      setDigits(['', '', '', '', '', ''])
+      setTimeout(() => { setShake(false); refs.current[0]?.focus() }, 500)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="auth-wrap">
+      <div className="auth-box">
+        <div className="auth-logo">
+          <svg width="32" height="32" viewBox="0 0 32 32">
+            <rect width="32" height="32" rx="8" fill="#1D9E75"/>
+            <text x="16" y="22" textAnchor="middle" fontSize="14" fontFamily="monospace" fill="white">&lt;/&gt;</text>
+          </svg>
+          <span>DevLearn</span>
+        </div>
+
+        <div className="card">
+          <h1 className="auth-title">Check your email</h1>
+          <p className="auth-sub">
+            We sent a 6-digit code to <strong style={{ color: 'var(--text)' }}>{pendingEmail}</strong>
+          </p>
+
+          {devOtp && (
+            <div className="demo-otp-banner">
+              🔧 Dev mode — OTP: <strong>{devOtp}</strong>
+              <div style={{ marginTop: '.3rem', opacity: .7, fontSize: '.75rem' }}>
+                Set up Gmail App Password in .env to send real emails.
+              </div>
+            </div>
+          )}
+
+          <div className="otp-row" style={{ animation: shaking ? 'shake .3s ease' : 'none' }} onPaste={handlePaste}>
+            {digits.map((d, i) => (
+              <input key={i} ref={el => refs.current[i] = el} className="otp-digit"
+                type="text" inputMode="numeric" maxLength={1} value={d}
+                onChange={e => handleChange(i, e.target.value)}
+                onKeyDown={e => handleKeyDown(i, e)} autoFocus={i === 0} />
+            ))}
+          </div>
+
+          {error && <p className="error-msg" style={{ textAlign: 'center' }}>⚠ {error}</p>}
+
+          <button className="btn btn-primary" style={{ width: '100%', marginTop: '1.4rem' }}
+            onClick={handleVerify} disabled={loading}>
+            {loading ? 'Verifying…' : 'Verify OTP →'}
+          </button>
+
+          <p className="form-footer">
+            Didn't receive it? <a onClick={() => navigate('/')}>Go back and try again</a>
+          </p>
+        </div>
+      </div>
+      <style>{`@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}`}</style>
+    </div>
+  )
+}
